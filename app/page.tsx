@@ -1,65 +1,143 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { submitLead } from '@/app/actions/leads'
+
+const FIFA_COUNTRIES = [
+  { code: 'ES', name: 'España' },
+  { code: 'AR', name: 'Argentina' },
+  { code: 'MX', name: 'México' },
+  { code: 'CO', name: 'Colombia' },
+  { code: 'CL', name: 'Chile' },
+  { code: 'PE', name: 'Perú' },
+  { code: 'UY', name: 'Uruguay' },
+  { code: 'BR', name: 'Brasil' },
+  { code: 'FR', name: 'Francia' },
+  { code: 'DE', name: 'Alemania' },
+  { code: 'IT', name: 'Italia' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'ENG', name: 'Inglaterra' },
+  { code: 'NL', name: 'Países Bajos' },
+  { code: 'US', name: 'Estados Unidos' },
+  { code: 'JP', name: 'Japón' },
+  { code: 'KR', name: 'Corea del Sur' },
+  { code: 'MA', name: 'Marruecos' },
+  { code: 'SN', name: 'Senegal' },
+  { code: 'NG', name: 'Nigeria' },
+]
+
+export default function HomePage() {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [country, setCountry] = useState('ES')
+  const [error, setError] = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    startTransition(async () => {
+      const result = await submitLead({ name, email, country_code: country })
+      if (!result.success) {
+        setError(result.error ?? 'Algo salió mal. Inténtalo de nuevo.')
+        return
+      }
+      router.push(`/onboarding?email=${encodeURIComponent(email)}`)
+    })
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-8"
+      style={{
+        background: 'radial-gradient(ellipse 80% 70% at 50% 40%, #2a1260 0%, #0a0420 100%)',
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full opacity-30"
+        style={{ background: 'radial-gradient(circle, #9474F6 0%, transparent 70%)' }}
+      />
+
+      <div className="noise-overlay relative z-10 flex w-full max-w-sm flex-col gap-7">
+        <header className="flex flex-col gap-1 leading-none">
+          <h1
+            style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }}
+            className="text-[clamp(3.5rem,18vw,5rem)] font-black text-white tracking-tight"
+          >
+            BEFOOTBALL
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <h1
+            style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }}
+            className="text-[clamp(3.5rem,18vw,5rem)] font-black text-white tracking-tight"
+          >
+            WORLD CUP
+          </h1>
+          <h1
+            style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }}
+            className="text-[clamp(3.5rem,18vw,5rem)] font-black text-white tracking-tight"
+          >
+            TRIVIA
+          </h1>
+          <p
+            className="mt-2 text-sm font-semibold uppercase tracking-widest"
+            style={{ color: 'var(--color-lavender)', fontFamily: 'var(--font-body)' }}
+          >
+            Demuestra que sabes de Mundiales
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        </header>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Tu nombre"
+            required
+            minLength={2}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-[#9474F6] focus:ring-1 focus:ring-[#9474F6] transition-colors"
+          />
+          <input
+            type="email"
+            placeholder="tu@email.com"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-[#9474F6] focus:ring-1 focus:ring-[#9474F6] transition-colors"
+          />
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-[#180E33] px-4 py-3 text-sm text-white outline-none focus:border-[#9474F6] focus:ring-1 focus:ring-[#9474F6] transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {FIFA_COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {error && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isPending}
+            className="btn-primary mt-1 w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
+            {isPending ? 'Cargando...' : 'Empezar a jugar'}
+            {!isPending && (
+              <span className="arrow-badge">↗</span>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
-  );
+  )
 }
