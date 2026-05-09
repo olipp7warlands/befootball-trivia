@@ -2,6 +2,15 @@ import { createClient } from '@supabase/supabase-js'
 import * as fs from 'fs'
 import * as path from 'path'
 
+// Load .env.local so the script works without manually exporting vars
+const envPath = path.join(__dirname, '..', '.env.local')
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf-8').split('\n')) {
+    const match = line.match(/^([^#=\s][^=]*)=(.*)$/)
+    if (match) process.env[match[1]] = match[2].trim()
+  }
+}
+
 // Load questions from preguntas-mundiales.json if it exists
 // If not, use sample questions
 const questionsFile = path.join(__dirname, 'preguntas-mundiales.json')
