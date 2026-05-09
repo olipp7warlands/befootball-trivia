@@ -1,14 +1,14 @@
 import type { Division } from '@/lib/types'
 
-const styles: Record<Division, string> = {
-  bronze: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
-  silver: 'text-gray-300 border-gray-300/30 bg-gray-400/10',
-  gold: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10',
-  diamond: 'text-blue-400 border-blue-400/40 bg-blue-400/10',
-  elite: 'text-[#67D7A8] border-[#67D7A8]/40 bg-[#67D7A8]/10',
+const ICONS: Record<Division, string> = {
+  bronze: '●',
+  silver: '●',
+  gold: '●',
+  diamond: '◆',
+  elite: '★',
 }
 
-const labels: Record<Division, string> = {
+const LABELS: Record<Division, string> = {
   bronze: 'Bronce',
   silver: 'Plata',
   gold: 'Oro',
@@ -16,13 +16,40 @@ const labels: Record<Division, string> = {
   elite: 'Élite',
 }
 
-export default function DivisionPill({ division }: { division: Division }) {
+interface DivisionPillProps {
+  division: Division
+  tier?: 'I' | 'II' | 'III'
+  variant?: 'standard' | 'inverse'
+}
+
+export default function DivisionPill({
+  division,
+  tier,
+  variant = 'standard',
+}: DivisionPillProps) {
+  const isInverse = variant === 'inverse'
+
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${styles[division]}`}
-      style={{ fontFamily: 'var(--font-body)' }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '4px 8px',
+        borderRadius: '9999px',
+        background: isInverse ? 'rgba(103,215,168,0.10)' : '#180E33',
+        color: '#67D7A8',
+        border: isInverse ? '1px solid rgba(103,215,168,0.25)' : 'none',
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 700,
+        fontSize: '8px',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+      }}
     >
-      {labels[division]}
+      {ICONS[division]} {LABELS[division]}{tier ? ` ${tier}` : ''}
     </span>
   )
 }
