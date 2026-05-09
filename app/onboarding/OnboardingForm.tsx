@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { IconArrowUpRight } from '@tabler/icons-react'
-import { signInWithEmail } from '@/app/actions/auth'
+import { createClient } from '@/lib/supabase/client'
 import { CrystalCard, Avatar } from '@/components/ui'
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/
@@ -31,29 +31,45 @@ export function OnboardingForm() {
   const country = searchParams.get('country') ?? 'ES'
   const name = searchParams.get('name') ?? ''
 
-  const [isPending, startTransition] = useTransition()
+  const [loading, setLoading] = useState(false)
   const [username, setUsername] = useState('')
   const [cardSeed, setCardSeed] = useState(0)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const hint = usernameHint(username)
-  const canSubmit = hint?.ok === true && !isPending
+  const canSubmit = hint?.ok === true && !loading
 
   const initials = username ? username.slice(0, 2).toUpperCase() : (name ? name.slice(0, 2).toUpperCase() : 'BF')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
     setError(null)
-    startTransition(async () => {
-      const result = await signInWithEmail(email, { username, cardSeed, countryCode: country })
-      if (!result.success) {
-        setError(result.error ?? 'Error enviando el email. Inténtalo de nuevo.')
+    setLoading(true)
+    try {
+      // Call from browser client so PKCE code_verifier lives in the same browser
+      const supabase = createClient()
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            username,
+            card_seed: cardSeed,
+            country_code: country,
+          },
+        },
+      })
+      if (otpError) {
+        setError(otpError.message)
         return
       }
       setSent(true)
-    })
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ── "Check your email" screen ──────────────────────────────────────────
@@ -281,7 +297,7 @@ export function OnboardingForm() {
             transition: 'opacity 0.15s ease',
           }}
         >
-          <span>{isPending ? 'Enviando enlace...' : 'Entrar al campo'}</span>
+          <span>{loading ? 'Enviando enlace...' : 'Entrar al campo'}</span>
           <span
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

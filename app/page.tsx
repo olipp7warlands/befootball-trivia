@@ -124,6 +124,9 @@ export default function HomePage() {
           minHeight: '100dvh',
           display: 'flex', flexDirection: 'column',
           padding: '24px 20px 16px',
+          maxWidth: '420px',
+          margin: '0 auto',
+          width: '100%',
         }}
       >
         {/* Top row */}
