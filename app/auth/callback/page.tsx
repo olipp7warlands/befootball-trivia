@@ -1,56 +1,40 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { createProfile } from '@/app/actions/auth'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 
 type Phase = 'loading' | 'error'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('loading')
+  const done = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
 
-    async function run() {
-      // PKCE flow: Supabase sends ?code= in the query string
-      const code = new URLSearchParams(window.location.search).get('code')
-
-      if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error || !data.user) {
-          console.error('[auth/callback] exchangeCodeForSession failed:', error)
-          setPhase('error')
-          return
-        }
-        await finish(supabase, data.user.id, data.user.email ?? '', data.user.user_metadata)
-        return
-      }
-
-      // Implicit flow fallback: Supabase sets session automatically via detectSessionInUrl
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session?.user) {
-        console.error('[auth/callback] No session found:', sessionError)
+    // ── Detect hash-based error from Supabase (implicit flow error) ──
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1))
+      if (hashParams.get('error_code')) {
+        console.error('[callback] Supabase error in hash:', hashParams.get('error_description'))
         setPhase('error')
         return
       }
-      await finish(supabase, session.user.id, session.user.email ?? '', session.user.user_metadata)
     }
 
-    async function finish(
-      supabase: SupabaseClient,
-      userId: string,
-      email: string,
-      meta: Record<string, unknown>
-    ) {
-      // Check if profile already exists (returning user)
+    async function finish(user: User) {
+      if (done.current) return
+      done.current = true
+
+      // Returning user — go straight to lobby
       const { data: existing } = await supabase
         .from('profiles')
         .select('id')
-        .eq('id', userId)
+        .eq('id', user.id)
         .single()
 
       if (existing) {
@@ -59,12 +43,13 @@ export default function AuthCallbackPage() {
       }
 
       // New user — create profile from OTP metadata
+      const meta = user.user_metadata ?? {}
       const username = meta.username as string | undefined
       const cardSeed = typeof meta.card_seed === 'number' ? meta.card_seed : 0
       const countryCode = (meta.country_code as string | undefined) ?? 'ES'
 
       if (!username) {
-        router.replace(`/onboarding?email=${encodeURIComponent(email)}`)
+        router.replace(`/onboarding?email=${encodeURIComponent(user.email ?? '')}`)
         return
       }
 
@@ -72,10 +57,12 @@ export default function AuthCallbackPage() {
 
       if (!result.success) {
         if (result.error === 'Username already taken') {
-          router.replace(`/onboarding?email=${encodeURIComponent(email)}&username_taken=1`)
+          router.replace(
+            `/onboarding?email=${encodeURIComponent(user.email ?? '')}&username_taken=1`
+          )
           return
         }
-        console.error('[auth/callback] createProfile failed:', result.error)
+        console.error('[callback] createProfile failed:', result.error)
         setPhase('error')
         return
       }
@@ -83,7 +70,47 @@ export default function AuthCallbackPage() {
       router.replace('/lobby')
     }
 
-    run()
+    // ── Strategy 1: PKCE flow — ?code= in query string ──
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(async ({ data, error }) => {
+        if (error || !data?.user) {
+          console.error('[callback] PKCE exchange failed:', error?.message)
+          setPhase('error')
+          return
+        }
+        await finish(data.user)
+      })
+      return
+    }
+
+    // ── Strategy 2: Implicit flow — SDK detects #access_token= automatically ──
+    // Subscribe BEFORE checking session so we don't miss the event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        await finish(session.user)
+      }
+    })
+
+    // Also poll once in case the event fired before we subscribed
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await finish(session.user)
+      }
+    })
+
+    // Safety timeout — show error if nothing happens in 8s
+    const timeout = setTimeout(() => {
+      if (!done.current) {
+        console.error('[callback] Timeout — no auth event received')
+        setPhase('error')
+      }
+    }, 8000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [router])
 
   if (phase === 'error') {
@@ -102,15 +129,15 @@ export default function AuthCallbackPage() {
             letterSpacing: '-0.02em',
           }}
         >
-          Enlace <span style={{ color: '#dc3545' }}>inválido</span>
+          Enlace <span style={{ color: '#dc3545' }}>expirado</span>
         </p>
-        <p style={{ fontSize: '12px', color: 'rgba(222,216,250,0.6)', lineHeight: 1.5 }}>
-          El enlace expiró o ya fue usado. Vuelve a intentarlo.
+        <p style={{ fontSize: '12px', color: 'rgba(222,216,250,0.6)', lineHeight: 1.5, maxWidth: '260px' }}>
+          El enlace ya fue usado o expiró. Vuelve al inicio y solicita uno nuevo.
         </p>
         <a
           href="/"
           style={{
-            marginTop: '8px', padding: '11px 20px', borderRadius: '9999px',
+            marginTop: '4px', padding: '11px 20px', borderRadius: '9999px',
             background: 'linear-gradient(180deg, #6d3df5, #5B2AF3)',
             color: '#F1F1F1', fontFamily: 'var(--font-body)',
             fontWeight: 700, fontSize: '11px', textDecoration: 'none',
@@ -138,7 +165,7 @@ export default function AuthCallbackPage() {
       <div
         style={{
           width: 36, height: 36, borderRadius: '50%',
-          border: '2px solid rgba(148,116,246,0.4)',
+          border: '2px solid rgba(148,116,246,0.3)',
           borderTopColor: '#9474F6',
           animation: 'spin 0.8s linear infinite',
         }}
@@ -147,10 +174,10 @@ export default function AuthCallbackPage() {
       <p
         style={{
           fontFamily: 'var(--font-mono)', fontSize: '10px',
-          color: 'rgba(222,216,250,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: 'rgba(222,216,250,0.45)', letterSpacing: '0.1em', textTransform: 'uppercase',
         }}
       >
-        Iniciando sesión...
+        Verificando...
       </p>
     </div>
   )
