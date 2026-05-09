@@ -16,11 +16,16 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // ── Detect hash-based error from Supabase (implicit flow error) ──
+    // Debug: log what arrived so we can diagnose flow type
+    console.log('[callback] search:', window.location.search)
+    console.log('[callback] hash:', window.location.hash ? window.location.hash.slice(0, 80) + '…' : '(empty)')
+
+    // ── Detect hash-based error from Supabase ──
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.slice(1))
-      if (hashParams.get('error_code')) {
-        console.error('[callback] Supabase error in hash:', hashParams.get('error_description'))
+      const errCode = hashParams.get('error_code')
+      if (errCode) {
+        console.error('[callback] Supabase auth error:', errCode, hashParams.get('error_description'))
         setPhase('error')
         return
       }
