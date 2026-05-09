@@ -75,12 +75,29 @@ export default function AuthCallbackPage() {
       router.replace('/lobby')
     }
 
-    // ── Strategy 1: PKCE flow — ?code= in query string ──
-    const code = new URLSearchParams(window.location.search).get('code')
+    // ── Strategy 1a: PKCE login — ?code= ──
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(async ({ data, error }) => {
         if (error || !data?.user) {
           console.error('[callback] PKCE exchange failed:', error?.message)
+          setPhase('error')
+          return
+        }
+        await finish(data.user)
+      })
+      return
+    }
+
+    // ── Strategy 1b: PKCE signup — ?token=pkce_xxx&type=signup ──
+    const token = params.get('token_hash') ?? params.get('token')
+    const type = params.get('type') as 'signup' | 'magiclink' | 'email' | 'recovery' | null
+    if (token && type) {
+      console.log('[callback] verifyOtp token_hash, type:', type)
+      supabase.auth.verifyOtp({ token_hash: token, type }).then(async ({ data, error }) => {
+        if (error || !data?.user) {
+          console.error('[callback] verifyOtp failed:', error?.message)
           setPhase('error')
           return
         }
