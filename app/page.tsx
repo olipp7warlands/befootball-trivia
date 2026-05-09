@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
 import { Flag, BetaBadge, PillButton } from '@/components/ui'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
-import { createClient } from '@/lib/supabase/client'
 
 const FIFA_COUNTRIES = [
   { code: 'ES', name: 'España' },
@@ -60,54 +59,25 @@ const INPUT_STYLE: React.CSSProperties = {
 
 export default function HomePage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [country, setCountry] = useState('ES')
   const [focused, setFocused] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
-
-    try {
-      const supabase = createClient()
-
-      // Detect signup vs login
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle()
-
-      // Always upsert lead (signup or login)
-      await submitLead({ name, email, country_code: country })
-
-      if (existingProfile) {
-        // LOGIN — send OTP directly, skip onboarding
-        const { error: otpError } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            shouldCreateUser: false,
-          },
-        })
-        if (otpError) {
-          const isRateLimit = otpError.status === 429 || otpError.message.toLowerCase().includes('rate limit')
-          setError(isRateLimit ? 'Demasiados intentos. Espera unos minutos.' : 'No pudimos enviar el enlace. Inténtalo de nuevo.')
-          return
-        }
-        router.push(`/auth/check-email?mode=login&email=${encodeURIComponent(email)}`)
-      } else {
-        // SIGNUP — go to onboarding to pick username + avatar
-        const params = new URLSearchParams({ email, name, country })
-        router.push(`/onboarding?${params}`)
+    startTransition(async () => {
+      const result = await submitLead({ name, email, country_code: country })
+      if (!result.success) {
+        setError(result.error ?? 'Algo salió mal.')
+        return
       }
-    } finally {
-      setLoading(false)
-    }
+      const params = new URLSearchParams({ email, name, country })
+      router.push(`/onboarding?${params}`)
+    })
   }
 
   const selectedCountry = FIFA_COUNTRIES.find((c) => c.code === country)!
@@ -204,11 +174,29 @@ export default function HomePage() {
 
         <div style={{ flex: 1 }} />
 
-        <PillButton type="submit" variant="primary" arrow disabled={loading}>
-          {loading ? 'Comprobando...' : 'Empezar a jugar'}
+        {/* Primary CTA */}
+        <PillButton type="submit" variant="primary" arrow disabled={isPending}>
+          {isPending ? 'Enviando...' : 'Empezar a jugar'}
         </PillButton>
 
-        <p style={{ marginTop: '8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.4)' }}>
+        {/* Secondary login link */}
+        <p style={{ marginTop: '14px', textAlign: 'center', fontSize: '11.5px', fontWeight: 500, color: 'rgba(222,216,250,0.7)' }}>
+          ¿Ya tienes cuenta?{' '}
+          <a
+            href="/login"
+            style={{
+              color: '#9474F6',
+              textDecoration: 'underline',
+              textUnderlineOffset: '2px',
+              fontWeight: 600,
+              transition: 'color 0.15s ease, opacity 0.15s ease',
+            }}
+          >
+            Inicia sesión
+          </a>
+        </p>
+
+        <p style={{ marginTop: '10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.4)' }}>
           Al jugar aceptas términos y privacidad
         </p>
       </form>
