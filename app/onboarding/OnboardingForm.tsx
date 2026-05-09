@@ -63,9 +63,26 @@ export function OnboardingForm() {
         },
       })
       if (otpError) {
-        setError(otpError.message)
+        const isRateLimit =
+          otpError.status === 429 ||
+          otpError.message.toLowerCase().includes('rate limit') ||
+          otpError.message.toLowerCase().includes('too many') ||
+          otpError.message.toLowerCase().includes('over_email')
+        if (isRateLimit) {
+          setError('Demasiados intentos. Espera unos minutos o prueba con otro email.')
+        } else {
+          setError(otpError.message)
+        }
         return
       }
+
+      // Debug: verify PKCE code_verifier cookie was set by @supabase/ssr
+      const sbCookies = document.cookie
+        .split('; ')
+        .filter((c) => c.startsWith('sb-'))
+      console.log('[onboarding] OTP sent OK. Supabase cookies:', sbCookies.length ? sbCookies : '(none visible — may be HttpOnly)')
+      sbCookies.forEach((c) => console.log(' ', c.split('=')[0]))
+
       setSent(true)
     } finally {
       setLoading(false)
