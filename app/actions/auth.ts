@@ -4,14 +4,25 @@ import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/lib/types"
 
 export async function signInWithEmail(
-  email: string
+  email: string,
+  meta?: { username: string; cardSeed: number; countryCode: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient()
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        ...(meta && {
+          data: {
+            username: meta.username,
+            card_seed: meta.cardSeed,
+            country_code: meta.countryCode,
+          },
+        }),
+      },
     })
 
     if (error) {
