@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
 import { Flag, BetaBadge, PillButton } from '@/components/ui'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
+import { createClient } from '@/lib/supabase/client'
 
 const FIFA_COUNTRIES = [
   { code: 'ES', name: 'España' },
@@ -59,41 +60,67 @@ const INPUT_STYLE: React.CSSProperties = {
 
 export default function HomePage() {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [country, setCountry] = useState('ES')
   const [focused, setFocused] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    startTransition(async () => {
-      const result = await submitLead({ name, email, country_code: country })
-      if (!result.success) {
-        setError(result.error ?? 'Algo salió mal.')
-        return
+    setLoading(true)
+
+    try {
+      const supabase = createClient()
+
+      // Detect signup vs login
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+
+      // Always upsert lead (signup or login)
+      await submitLead({ name, email, country_code: country })
+
+      if (existingProfile) {
+        // LOGIN — send OTP directly, skip onboarding
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            shouldCreateUser: false,
+          },
+        })
+        if (otpError) {
+          const isRateLimit = otpError.status === 429 || otpError.message.toLowerCase().includes('rate limit')
+          setError(isRateLimit ? 'Demasiados intentos. Espera unos minutos.' : 'No pudimos enviar el enlace. Inténtalo de nuevo.')
+          return
+        }
+        router.push(`/auth/check-email?mode=login&email=${encodeURIComponent(email)}`)
+      } else {
+        // SIGNUP — go to onboarding to pick username + avatar
+        const params = new URLSearchParams({ email, name, country })
+        router.push(`/onboarding?${params}`)
       }
-      router.push(
-        `/onboarding?email=${encodeURIComponent(email)}&country=${country}&name=${encodeURIComponent(name)}`
-      )
-    })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const selectedCountry = FIFA_COUNTRIES.find((c) => c.code === country)!
 
   return (
     <ScreenContainer>
-      {/* Crystal blob — email gate only */}
+      {/* Crystal blob */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
-          top: -40,
-          right: -60,
-          width: 220,
-          height: 220,
+          top: -40, right: -60,
+          width: 220, height: 220,
           borderRadius: '50%',
           background: 'conic-gradient(from 200deg, #5B2AF3, #9474F6, #DED8FA, #67D7A8, #5B2AF3)',
           filter: 'blur(60px)',
@@ -106,73 +133,33 @@ export default function HomePage() {
       <form
         onSubmit={handleSubmit}
         style={{
-          position: 'relative',
-          zIndex: 1,
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
+          position: 'relative', zIndex: 1,
+          minHeight: '100dvh', display: 'flex', flexDirection: 'column',
           padding: '24px 20px 16px',
         }}
       >
         {/* Top row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontStyle: 'italic',
-              fontWeight: 900,
-              fontSize: '14px',
-              letterSpacing: '-0.02em',
-              color: '#F1F1F1',
-            }}
-          >
+          <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em', color: '#F1F1F1' }}>
             BEFOOTBALL
           </span>
           <BetaBadge />
         </div>
 
         {/* Eyebrow */}
-        <p
-          style={{
-            marginTop: '26px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '9.5px',
-            color: '#9474F6',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-          }}
-        >
+        <p style={{ marginTop: '26px', fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#9474F6', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
           — LIGA GLOBAL · 1930-2026
         </p>
 
         {/* Hero */}
-        <h1
-          style={{
-            marginTop: '8px',
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontWeight: 900,
-            fontSize: '30px',
-            lineHeight: 0.96,
-            letterSpacing: '-0.025em',
-            color: '#F1F1F1',
-          }}
-        >
+        <h1 style={{ marginTop: '8px', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '30px', lineHeight: 0.96, letterSpacing: '-0.025em', color: '#F1F1F1' }}>
           Demuestra
           <br />cuánto sabes
           <br />de <span style={{ color: '#67D7A8' }}>Mundiales</span>
         </h1>
 
         {/* Sub-claim */}
-        <p
-          style={{
-            marginTop: '12px',
-            fontSize: '11.5px',
-            color: '#DED8FA',
-            opacity: 0.75,
-            lineHeight: 1.5,
-          }}
-        >
+        <p style={{ marginTop: '12px', fontSize: '11.5px', color: '#DED8FA', opacity: 0.75, lineHeight: 1.5 }}>
           Reta a fans de todo el mundo. Sube divisiones. Conviértete en élite del fútbol.
         </p>
 
@@ -180,75 +167,36 @@ export default function HomePage() {
         <div style={{ marginTop: '22px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
           <label style={{ ...FIELD_BASE, ...(focused === 'name' ? FIELD_FOCUS : {}) }}>
             <IconUser size={14} color="rgba(222,216,250,0.5)" />
-            <input
-              type="text"
-              placeholder="tu nombre o apodo"
-              required
-              minLength={2}
-              value={name}
+            <input type="text" placeholder="tu nombre o apodo" required minLength={2} value={name}
               onChange={(e) => setName(e.target.value)}
-              onFocus={() => setFocused('name')}
-              onBlur={() => setFocused(null)}
-              style={INPUT_STYLE}
-            />
+              onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
+              style={INPUT_STYLE} />
           </label>
 
           <label style={{ ...FIELD_BASE, ...(focused === 'email' ? FIELD_FOCUS : {}) }}>
             <IconMail size={14} color="rgba(222,216,250,0.5)" />
-            <input
-              type="email"
-              placeholder="email@ejemplo.com"
-              required
-              value={email}
+            <input type="email" placeholder="email@ejemplo.com" required value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
-              style={INPUT_STYLE}
-            />
+              onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
+              style={INPUT_STYLE} />
           </label>
 
-          {/* Country — custom display + native select overlay */}
           <div style={{ position: 'relative' }}>
             <div style={{ ...FIELD_BASE, ...(focused === 'country' ? FIELD_FOCUS : {}) }}>
               <Flag code={country} size={14} />
-              <span style={{ flex: 1, fontSize: '11px', color: '#DED8FA' }}>
-                {selectedCountry.name}
-              </span>
+              <span style={{ flex: 1, fontSize: '11px', color: '#DED8FA' }}>{selectedCountry.name}</span>
               <IconChevronDown size={14} color="rgba(222,216,250,0.4)" />
             </div>
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              onFocus={() => setFocused('country')}
-              onBlur={() => setFocused(null)}
+            <select value={country} onChange={(e) => setCountry(e.target.value)}
+              onFocus={() => setFocused('country')} onBlur={() => setFocused(null)}
               aria-label="País"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                opacity: 0,
-                cursor: 'pointer',
-                width: '100%',
-                height: '100%',
-              }}
-            >
-              {FIFA_COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>{c.name}</option>
-              ))}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}>
+              {FIFA_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
           </div>
 
           {error && (
-            <p
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(220,53,69,0.3)',
-                background: 'rgba(220,53,69,0.1)',
-                fontSize: '11px',
-                color: '#dc3545',
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
+            <p style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(220,53,69,0.3)', background: 'rgba(220,53,69,0.1)', fontSize: '11px', color: '#dc3545', fontFamily: 'var(--font-mono)' }}>
               {error}
             </p>
           )}
@@ -256,19 +204,11 @@ export default function HomePage() {
 
         <div style={{ flex: 1 }} />
 
-        <PillButton type="submit" variant="primary" arrow disabled={isPending}>
-          {isPending ? 'Enviando...' : 'Empezar a jugar'}
+        <PillButton type="submit" variant="primary" arrow disabled={loading}>
+          {loading ? 'Comprobando...' : 'Empezar a jugar'}
         </PillButton>
 
-        <p
-          style={{
-            marginTop: '8px',
-            textAlign: 'center',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '8px',
-            color: 'rgba(222,216,250,0.4)',
-          }}
-        >
+        <p style={{ marginTop: '8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.4)' }}>
           Al jugar aceptas términos y privacidad
         </p>
       </form>

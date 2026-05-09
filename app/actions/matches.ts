@@ -12,7 +12,7 @@ import type { Match, MatchRound, Profile, QuestionCategory } from "@/lib/types"
 
 export async function createMatch(
   opponentEmailOrUsername?: string
-): Promise<{ matchId: string; error?: string }> {
+): Promise<{ matchId: string; error?: string; waiting?: boolean }> {
   try {
     const supabase = await createClient()
 
@@ -56,11 +56,10 @@ export async function createMatch(
         )
         .single()
 
-      if (!opponent) {
-        return { matchId: "", error: "Opponent not found" }
+      if (opponent) {
+        playerBId = opponent.id
       }
-
-      playerBId = opponent.id
+      // If opponent not found, create a waiting match (player_b = null, status = 'waiting')
     }
 
     const matchStatus = playerBId ? "a_turn" : "waiting"
@@ -91,7 +90,7 @@ export async function createMatch(
       )
     }
 
-    return { matchId: match.id }
+    return { matchId: match.id, waiting: !playerBId }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
     console.error("[matches] Unexpected error in createMatch:", err)

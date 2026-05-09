@@ -21,7 +21,7 @@ export default function BottomNav() {
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 50,
+        zIndex: 40,
         background: 'rgba(24,14,51,0.95)',
         backdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(148,116,246,0.2)',
