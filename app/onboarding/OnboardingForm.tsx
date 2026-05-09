@@ -97,11 +97,6 @@ export function OnboardingForm() {
           minHeight: '100dvh', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           padding: '24px 20px', textAlign: 'center',
-          background: [
-            'radial-gradient(ellipse 60% 40% at 15% 10%, rgba(91,42,243,0.45) 0%, transparent 60%)',
-            'radial-gradient(ellipse 50% 35% at 90% 90%, rgba(148,116,246,0.30) 0%, transparent 60%)',
-            '#0a0420',
-          ].join(', '),
         }}
       >
         <div style={{ fontSize: '40px', marginBottom: '16px' }}>📬</div>
@@ -127,21 +122,10 @@ export function OnboardingForm() {
 
   // ── Main onboarding form ───────────────────────────────────────────────
   return (
-    <div
+    <form
+      onSubmit={handleSubmit}
       style={{
-        minHeight: '100dvh', position: 'relative', overflow: 'hidden',
-        background: [
-          'radial-gradient(ellipse 60% 40% at 15% 10%, rgba(91,42,243,0.45) 0%, transparent 60%)',
-          'radial-gradient(ellipse 50% 35% at 90% 90%, rgba(148,116,246,0.30) 0%, transparent 60%)',
-          '#0a0420',
-        ].join(', '),
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          position: 'relative', zIndex: 1,
-          minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
           padding: '24px 20px 16px', maxWidth: '420px', margin: '0 auto',
         }}
       >
@@ -335,7 +319,6 @@ export function OnboardingForm() {
         >
           Recibirás un enlace por email · Sin contraseña
         </p>
-      </form>
-    </div>
+    </form>
   )
 }

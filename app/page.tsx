@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
 import { Flag, BetaBadge, PillButton } from '@/components/ui'
+import { ScreenContainer } from '@/components/layout/ScreenContainer'
 
 const FIFA_COUNTRIES = [
   { code: 'ES', name: 'España' },
@@ -83,59 +84,46 @@ export default function HomePage() {
   const selectedCountry = FIFA_COUNTRIES.find((c) => c.code === country)!
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        position: 'relative',
-        overflow: 'hidden',
-        background: [
-          'radial-gradient(ellipse 60% 40% at 15% 10%, rgba(91,42,243,0.45) 0%, transparent 60%)',
-          'radial-gradient(ellipse 50% 35% at 90% 90%, rgba(148,116,246,0.30) 0%, transparent 60%)',
-          '#0a0420',
-        ].join(', '),
-      }}
-    >
-      {/* Page noise */}
+    <ScreenContainer>
+      {/* Crystal blob — email gate only */}
       <div
         aria-hidden
         style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          opacity: 0.04, mixBlendMode: 'overlay',
-        }}
-      />
-
-      {/* Crystal blob (behind content, z-index 0) */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute', top: -40, right: -60,
-          width: 220, height: 220, borderRadius: '50%',
+          position: 'absolute',
+          top: -40,
+          right: -60,
+          width: 220,
+          height: 220,
+          borderRadius: '50%',
           background: 'conic-gradient(from 200deg, #5B2AF3, #9474F6, #DED8FA, #67D7A8, #5B2AF3)',
-          filter: 'blur(60px)', opacity: 0.55, pointerEvents: 'none', zIndex: 0,
+          filter: 'blur(60px)',
+          opacity: 0.55,
+          pointerEvents: 'none',
+          zIndex: 0,
         }}
       />
 
-      {/* Form wraps the full viewport so the submit button works naturally */}
       <form
         onSubmit={handleSubmit}
         style={{
-          position: 'relative', zIndex: 1,
+          position: 'relative',
+          zIndex: 1,
           minHeight: '100dvh',
-          display: 'flex', flexDirection: 'column',
+          display: 'flex',
+          flexDirection: 'column',
           padding: '24px 20px 16px',
-          maxWidth: '420px',
-          margin: '0 auto',
-          width: '100%',
         }}
       >
         {/* Top row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span
             style={{
-              fontFamily: 'var(--font-display)', fontStyle: 'italic',
-              fontWeight: 900, fontSize: '14px',
-              letterSpacing: '-0.02em', color: '#F1F1F1',
+              fontFamily: 'var(--font-display)',
+              fontStyle: 'italic',
+              fontWeight: 900,
+              fontSize: '14px',
+              letterSpacing: '-0.02em',
+              color: '#F1F1F1',
             }}
           >
             BEFOOTBALL
@@ -147,8 +135,11 @@ export default function HomePage() {
         <p
           style={{
             marginTop: '26px',
-            fontFamily: 'var(--font-mono)', fontSize: '9.5px',
-            color: '#9474F6', letterSpacing: '0.18em', textTransform: 'uppercase',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '9.5px',
+            color: '#9474F6',
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
           }}
         >
           — LIGA GLOBAL · 1930-2026
@@ -158,9 +149,13 @@ export default function HomePage() {
         <h1
           style={{
             marginTop: '8px',
-            fontFamily: 'var(--font-display)', fontStyle: 'italic',
-            fontWeight: 900, fontSize: '30px',
-            lineHeight: 0.96, letterSpacing: '-0.025em', color: '#F1F1F1',
+            fontFamily: 'var(--font-display)',
+            fontStyle: 'italic',
+            fontWeight: 900,
+            fontSize: '30px',
+            lineHeight: 0.96,
+            letterSpacing: '-0.025em',
+            color: '#F1F1F1',
           }}
         >
           Demuestra
@@ -171,8 +166,11 @@ export default function HomePage() {
         {/* Sub-claim */}
         <p
           style={{
-            marginTop: '12px', fontSize: '11.5px',
-            color: '#DED8FA', opacity: 0.75, lineHeight: 1.5,
+            marginTop: '12px',
+            fontSize: '11.5px',
+            color: '#DED8FA',
+            opacity: 0.75,
+            lineHeight: 1.5,
           }}
         >
           Reta a fans de todo el mundo. Sube divisiones. Conviértete en élite del fútbol.
@@ -180,8 +178,6 @@ export default function HomePage() {
 
         {/* Fields */}
         <div style={{ marginTop: '22px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
-
-          {/* Name */}
           <label style={{ ...FIELD_BASE, ...(focused === 'name' ? FIELD_FOCUS : {}) }}>
             <IconUser size={14} color="rgba(222,216,250,0.5)" />
             <input
@@ -197,7 +193,6 @@ export default function HomePage() {
             />
           </label>
 
-          {/* Email */}
           <label style={{ ...FIELD_BASE, ...(focused === 'email' ? FIELD_FOCUS : {}) }}>
             <IconMail size={14} color="rgba(222,216,250,0.5)" />
             <input
@@ -228,9 +223,12 @@ export default function HomePage() {
               onBlur={() => setFocused(null)}
               aria-label="País"
               style={{
-                position: 'absolute', inset: 0,
-                opacity: 0, cursor: 'pointer',
-                width: '100%', height: '100%',
+                position: 'absolute',
+                inset: 0,
+                opacity: 0,
+                cursor: 'pointer',
+                width: '100%',
+                height: '100%',
               }}
             >
               {FIFA_COUNTRIES.map((c) => (
@@ -242,10 +240,12 @@ export default function HomePage() {
           {error && (
             <p
               style={{
-                padding: '8px 12px', borderRadius: '8px',
+                padding: '8px 12px',
+                borderRadius: '8px',
                 border: '1px solid rgba(220,53,69,0.3)',
                 background: 'rgba(220,53,69,0.1)',
-                fontSize: '11px', color: '#dc3545',
+                fontSize: '11px',
+                color: '#dc3545',
                 fontFamily: 'var(--font-mono)',
               }}
             >
@@ -254,25 +254,24 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Push CTA to bottom */}
         <div style={{ flex: 1 }} />
 
-        {/* CTA pill */}
         <PillButton type="submit" variant="primary" arrow disabled={isPending}>
           {isPending ? 'Enviando...' : 'Empezar a jugar'}
         </PillButton>
 
-        {/* Legal */}
         <p
           style={{
-            marginTop: '8px', textAlign: 'center',
-            fontFamily: 'var(--font-mono)', fontSize: '8px',
+            marginTop: '8px',
+            textAlign: 'center',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '8px',
             color: 'rgba(222,216,250,0.4)',
           }}
         >
           Al jugar aceptas términos y privacidad
         </p>
       </form>
-    </div>
+    </ScreenContainer>
   )
 }
