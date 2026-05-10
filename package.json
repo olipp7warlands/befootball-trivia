@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed-questions.ts",
+    "seed-bot-personas": "tsx scripts/seed-bot-personas.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:migrate": "echo 'Run migrations manually in Supabase dashboard or CLI'"
   },
   "dependencies": {
@@ -31,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }
