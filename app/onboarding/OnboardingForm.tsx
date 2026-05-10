@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { IconArrowUpRight, IconMail } from '@tabler/icons-react'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,10 @@ export function OnboardingForm() {
   const email = searchParams.get('email') ?? ''
   const country = searchParams.get('country') ?? 'ES'
   const name = searchParams.get('name') ?? ''
+
+  useEffect(() => {
+    router.prefetch('/auth/check-email')
+  }, [router])
 
   const [loading, setLoading] = useState(false)
   const [username, setUsername] = useState('')

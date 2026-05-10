@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconMail, IconArrowLeft } from '@tabler/icons-react'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,10 @@ export default function LoginPage() {
   const [focused, setFocused] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    router.prefetch('/auth/check-email')
+  }, [router])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

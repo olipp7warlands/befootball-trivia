@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { IconMail } from '@tabler/icons-react'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,7 @@ const COPY = {
 }
 
 function CheckEmailContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const mode = (searchParams.get('mode') ?? 'signup') as 'login' | 'signup'
   const email = searchParams.get('email') ?? ''
@@ -29,6 +30,10 @@ function CheckEmailContent() {
 
   const [secondsLeft, setSecondsLeft] = useState(COOLDOWN)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    router.prefetch('/lobby')
+  }, [router])
   const [resent, setResent] = useState(false)
   const [resendError, setResendError] = useState<string | null>(null)
 

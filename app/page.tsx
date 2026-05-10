@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconUser, IconMail, IconChevronDown } from '@tabler/icons-react'
+import { IconUser, IconMail, IconChevronDown, IconArrowRight } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
 import { Flag, BetaBadge, PillButton } from '@/components/ui'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
@@ -80,6 +80,11 @@ export default function HomePage() {
     })
   }
 
+  useEffect(() => {
+    router.prefetch('/login')
+    router.prefetch('/onboarding')
+  }, [router])
+
   const selectedCountry = FIFA_COUNTRIES.find((c) => c.code === country)!
 
   return (
@@ -113,7 +118,29 @@ export default function HomePage() {
           <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '14px', letterSpacing: '-0.02em', color: '#F1F1F1' }}>
             BEFOOTBALL
           </span>
-          <BetaBadge />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <BetaBadge />
+            <a
+              href="/login"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize: '11px',
+                color: 'rgba(222,216,250,0.7)',
+                letterSpacing: '0.04em',
+                textDecoration: 'none',
+                transition: 'color 0.15s ease, opacity 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#67D7A8')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(222,216,250,0.7)')}
+            >
+              Iniciar sesión
+              <IconArrowRight size={11} />
+            </a>
+          </div>
         </div>
 
         {/* Eyebrow */}
@@ -178,23 +205,6 @@ export default function HomePage() {
         <PillButton type="submit" variant="primary" arrow disabled={isPending}>
           {isPending ? 'Enviando...' : 'Empezar a jugar'}
         </PillButton>
-
-        {/* Secondary login link */}
-        <p style={{ marginTop: '14px', textAlign: 'center', fontSize: '11.5px', fontWeight: 500, color: 'rgba(222,216,250,0.7)' }}>
-          ¿Ya tienes cuenta?{' '}
-          <a
-            href="/login"
-            style={{
-              color: '#9474F6',
-              textDecoration: 'underline',
-              textUnderlineOffset: '2px',
-              fontWeight: 600,
-              transition: 'color 0.15s ease, opacity 0.15s ease',
-            }}
-          >
-            Inicia sesión
-          </a>
-        </p>
 
         <p style={{ marginTop: '10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.4)' }}>
           Al jugar aceptas términos y privacidad
