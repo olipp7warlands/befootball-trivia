@@ -7,11 +7,11 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const token = searchParams.get('token_hash') ?? searchParams.get('token')
   const type = searchParams.get('type')
-  const returnTo = searchParams.get('return_to') // e.g. /match/uuid
+  // return_to from URL (legacy) OR from user_metadata (set during OTP) — resolved after auth
+  const urlReturnTo = searchParams.get('return_to')
 
-  // Build redirect responses — prefer return_to over /lobby
-  const postAuthUrl = returnTo ? `${origin}${returnTo}` : `${origin}/lobby`
-  const redirectLobby = NextResponse.redirect(postAuthUrl)
+  // Placeholder redirects — actual destination resolved after auth (using user_metadata.return_to)
+  const redirectLobby = NextResponse.redirect(`${origin}/lobby`)
   const redirectError = NextResponse.redirect(`${origin}/?error=auth_failed`)
 
   // Create Supabase client that writes session cookies directly onto the response
@@ -68,8 +68,17 @@ export async function GET(request: NextRequest) {
     .eq('id', userId)
     .single()
 
+  // Resolve post-auth destination: metadata.return_to > URL return_to > /lobby
+  const metaReturnTo = userMeta.return_to as string | undefined
+  const finalReturnTo = metaReturnTo || urlReturnTo || null
+  const postAuthRedirect = NextResponse.redirect(
+    finalReturnTo ? `${origin}${finalReturnTo}` : `${origin}/lobby`
+  )
+  // Copy session cookies onto postAuthRedirect
+  redirectLobby.cookies.getAll().forEach(c => postAuthRedirect.cookies.set(c.name, c.value))
+
   if (existing) {
-    return redirectLobby
+    return postAuthRedirect
   }
 
   const username = userMeta.username as string | undefined
@@ -77,9 +86,10 @@ export async function GET(request: NextRequest) {
   const countryCode = (userMeta.country_code as string | undefined) ?? 'ES'
 
   if (!username) {
-    return NextResponse.redirect(
-      `${origin}/onboarding?email=${encodeURIComponent(userEmail ?? '')}`
-    )
+    const onboardingUrl = new URL(`${origin}/onboarding`)
+    onboardingUrl.searchParams.set('email', userEmail ?? '')
+    if (finalReturnTo) onboardingUrl.searchParams.set('return_to', finalReturnTo)
+    return NextResponse.redirect(onboardingUrl.toString())
   }
 
   const { error: insertError } = await admin.from('profiles').insert({
@@ -91,14 +101,16 @@ export async function GET(request: NextRequest) {
   })
 
   if (insertError?.code === '23505') {
-    return NextResponse.redirect(
-      `${origin}/onboarding?email=${encodeURIComponent(userEmail ?? '')}&username_taken=1`
-    )
+    const onboardingUrl = new URL(`${origin}/onboarding`)
+    onboardingUrl.searchParams.set('email', userEmail ?? '')
+    onboardingUrl.searchParams.set('username_taken', '1')
+    if (finalReturnTo) onboardingUrl.searchParams.set('return_to', finalReturnTo)
+    return NextResponse.redirect(onboardingUrl.toString())
   }
 
   if (insertError) {
     console.error('[callback] Profile insert failed:', insertError.message)
   }
 
-  return redirectLobby
+  return postAuthRedirect
 }

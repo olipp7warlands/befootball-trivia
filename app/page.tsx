@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown, IconArrowRight } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
-import { Flag, BetaBadge, PillButton } from '@/components/ui'
+import { Flag, BetaBadge, PillButton, Avatar } from '@/components/ui'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
 
 const FIFA_COUNTRIES = [
@@ -61,6 +61,19 @@ export default function HomePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('return_to') ?? ''
+
+  const isInvited = returnTo.startsWith('/match/')
+  const matchId = isInvited ? returnTo.split('/')[2] : null
+
+  const [inviterInfo, setInviterInfo] = useState<{ username: string; country_code: string; card_seed: number } | null>(null)
+
+  useEffect(() => {
+    if (!matchId) return
+    fetch(`/api/match/${matchId}/inviter-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.inviter ? setInviterInfo(d.inviter) : null)
+      .catch(() => null)
+  }, [matchId])
 
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState('')
@@ -149,19 +162,38 @@ export default function HomePage() {
 
         {/* Eyebrow */}
         <p style={{ marginTop: '26px', fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: '#9474F6', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-          — LIGA GLOBAL · 1930-2026
+          {inviterInfo ? '— TIENES UN RETO' : '— LIGA GLOBAL · 1930-2026'}
         </p>
 
+        {/* Invited: inviter avatar + name */}
+        {inviterInfo && (
+          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Avatar cardSeed={inviterInfo.card_seed} initials={inviterInfo.username.slice(0, 2).toUpperCase()} size={44} />
+            <div>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'rgba(222,216,250,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {inviterInfo.country_code} · Te desafía
+              </p>
+              <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '18px', color: '#F1F1F1', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                {inviterInfo.username}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Hero */}
-        <h1 style={{ marginTop: '8px', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '30px', lineHeight: 0.96, letterSpacing: '-0.025em', color: '#F1F1F1' }}>
-          Demuestra
-          <br />cuánto sabes
-          <br />de <span style={{ color: '#67D7A8' }}>Mundiales</span>
+        <h1 style={{ marginTop: '8px', fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: inviterInfo ? '24px' : '30px', lineHeight: 0.96, letterSpacing: '-0.025em', color: '#F1F1F1' }}>
+          {inviterInfo
+            ? <>{inviterInfo.username} <span style={{ color: '#67D7A8' }}>te reta.</span></>
+            : <>Demuestra<br />cuánto sabes<br />de <span style={{ color: '#67D7A8' }}>Mundiales</span></>
+          }
         </h1>
 
         {/* Sub-claim */}
         <p style={{ marginTop: '12px', fontSize: '11.5px', color: '#DED8FA', opacity: 0.75, lineHeight: 1.5 }}>
-          Reta a fans de todo el mundo. Sube divisiones. Conviértete en élite del fútbol.
+          {inviterInfo
+            ? 'Demuestra cuánto sabes de Mundiales y dejá tu marca.'
+            : 'Reta a fans de todo el mundo. Sube divisiones. Conviértete en élite del fútbol.'
+          }
         </p>
 
         {/* Fields */}

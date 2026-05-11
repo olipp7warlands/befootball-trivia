@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { IconMail, IconArrowLeft } from '@tabler/icons-react'
 import { createClient } from '@/lib/supabase/client'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
@@ -9,6 +9,9 @@ import { PillButton } from '@/components/ui'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get('return_to') ?? ''
+
   const [isPending, startTransition] = useTransition()
   const [email, setEmail] = useState('')
   const [focused, setFocused] = useState(false)
@@ -30,6 +33,7 @@ export default function LoginPage() {
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           shouldCreateUser: false,
+          ...(returnTo ? { data: { return_to: returnTo } } : {}),
         },
       })
 

@@ -1,11 +1,36 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { IconX, IconSend, IconClock } from '@tabler/icons-react'
+import { IconX, IconSend, IconClock, IconCheck } from '@tabler/icons-react'
 import { createMatch } from '@/app/actions/matches'
 
 interface Props {
   onClose: () => void
+}
+
+function CopyButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+  async function handleCopy() {
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        flexShrink: 0, padding: '4px 10px', borderRadius: '6px',
+        border: `1px solid ${copied ? 'rgba(103,215,168,0.4)' : 'rgba(222,216,250,0.15)'}`,
+        background: copied ? 'rgba(103,215,168,0.1)' : 'rgba(255,255,255,0.06)',
+        color: copied ? '#67D7A8' : '#DED8FA',
+        fontSize: '10px', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: '4px',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      {copied ? <><IconCheck size={11} /> Copiado</> : 'Copiar'}
+    </button>
+  )
 }
 
 export function MatchmakeClient({ onClose }: Props) {
@@ -158,12 +183,7 @@ export function MatchmakeClient({ onClose }: Props) {
             {matchUrl && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(222,216,250,0.1)', borderRadius: '10px', padding: '10px 12px', marginBottom: '16px' }}>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', color: 'rgba(222,216,250,0.6)', fontFamily: 'var(--font-mono)' }}>{matchUrl}</span>
-                <button
-                  onClick={() => navigator.clipboard.writeText(matchUrl)}
-                  style={{ flexShrink: 0, padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(222,216,250,0.15)', background: 'rgba(255,255,255,0.06)', color: '#DED8FA', fontSize: '10px', cursor: 'pointer' }}
-                >
-                  Copiar
-                </button>
+                <CopyButton url={matchUrl} />
               </div>
             )}
             <button onClick={onClose} style={{ width: '100%', padding: '11px', borderRadius: '9999px', background: 'rgba(91,42,243,0.2)', border: '1px solid rgba(91,42,243,0.4)', color: '#9474F6', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '12px', cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -180,9 +200,7 @@ export function MatchmakeClient({ onClose }: Props) {
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(222,216,250,0.1)', borderRadius: '10px', padding: '10px 12px', marginBottom: '16px' }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', color: 'rgba(222,216,250,0.6)', fontFamily: 'var(--font-mono)' }}>{matchUrl}</span>
-              <button onClick={() => navigator.clipboard.writeText(matchUrl ?? '')} style={{ flexShrink: 0, padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(222,216,250,0.15)', background: 'rgba(255,255,255,0.06)', color: '#DED8FA', fontSize: '10px', cursor: 'pointer' }}>
-                Copiar
-              </button>
+              <CopyButton url={matchUrl ?? ''} />
             </div>
             <button onClick={onClose} style={{ width: '100%', padding: '11px', borderRadius: '9999px', background: 'linear-gradient(180deg, #6d3df5, #5B2AF3)', border: 'none', color: '#F1F1F1', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '12px', cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Listo

@@ -38,9 +38,9 @@ export async function POST() {
     .or(`player_a.eq.${user.id},player_b.eq.${user.id}`)
     .in('status', ['a_turn', 'b_turn', 'waiting'])
 
-  if (active && active.length >= 3) {
+  if (active && active.length >= 10) {
     return NextResponse.json(
-      { error: 'Tienes 3 partidas en curso, termina una antes de empezar otra' },
+      { error: 'Tienes 10 partidas en curso, termina alguna antes de empezar otra' },
       { status: 400 }
     )
   }

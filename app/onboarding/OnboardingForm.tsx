@@ -57,8 +57,8 @@ export function OnboardingForm() {
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback${returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : ''}`,
-          data: { username, card_seed: cardSeed, country_code: country, name },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { username, card_seed: cardSeed, country_code: country, name, ...(returnTo ? { return_to: returnTo } : {}) },
         },
       })
       if (otpError) {

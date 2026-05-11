@@ -83,8 +83,27 @@ export default async function MatchPage({
     redirect(`/match/${id}`)
   }
 
-  // Not a participant and can't join
-  if (!isParticipant) redirect('/lobby')
+  // Caso D: not a participant and match already has a different player_b → render error page
+  if (!isParticipant) {
+    return (
+      <ScreenContainer>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#dc3545', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+            — Reto no disponible
+          </p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '22px', color: '#F1F1F1', letterSpacing: '-0.02em', lineHeight: 1 }}>
+            Este reto ya fue<br />aceptado.
+          </h2>
+          <p style={{ fontSize: '12px', color: 'rgba(222,216,250,0.6)', maxWidth: '260px', lineHeight: 1.5 }}>
+            Otro jugador se te adelantó. Crea tu propia partida desde el lobby.
+          </p>
+          <a href="/lobby" style={{ marginTop: '8px', padding: '11px 24px', borderRadius: '9999px', background: 'linear-gradient(180deg, #6d3df5, #5B2AF3)', color: '#F1F1F1', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '12px', textDecoration: 'none', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Crear nueva partida
+          </a>
+        </div>
+      </ScreenContainer>
+    )
+  }
 
   if (match.status === 'finished') redirect(`/match/${id}/result`)
 
