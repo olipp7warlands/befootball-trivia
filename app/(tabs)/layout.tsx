@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { redirect } from 'next/navigation'
 import { getProfile } from '@/app/actions/auth'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'

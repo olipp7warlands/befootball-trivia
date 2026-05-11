@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown, IconArrowRight } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
@@ -57,7 +57,7 @@ const INPUT_STYLE: React.CSSProperties = {
   minWidth: 0,
 }
 
-export default function HomePage() {
+function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('return_to') ?? ''
@@ -247,5 +247,14 @@ export default function HomePage() {
         </p>
       </form>
     </ScreenContainer>
+  )
+}
+
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   )
 }

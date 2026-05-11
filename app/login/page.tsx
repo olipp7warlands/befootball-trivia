@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { IconMail, IconArrowLeft } from '@tabler/icons-react'
 import { createClient } from '@/lib/supabase/client'
 import { ScreenContainer } from '@/components/layout/ScreenContainer'
 import { PillButton } from '@/components/ui'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('return_to') ?? ''
@@ -169,5 +169,13 @@ export default function LoginPage() {
         </p>
       </div>
     </ScreenContainer>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   )
 }
