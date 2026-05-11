@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { IconUser, IconMail, IconChevronDown, IconArrowRight } from '@tabler/icons-react'
 import { submitLead } from '@/app/actions/leads'
 import { Flag, BetaBadge, PillButton } from '@/components/ui'
@@ -59,6 +59,9 @@ const INPUT_STYLE: React.CSSProperties = {
 
 export default function HomePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get('return_to') ?? ''
+
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -76,6 +79,7 @@ export default function HomePage() {
         return
       }
       const params = new URLSearchParams({ email, name, country })
+      if (returnTo) params.set('return_to', returnTo)
       router.push(`/onboarding?${params}`)
     })
   }

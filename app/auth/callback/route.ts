@@ -7,9 +7,11 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const token = searchParams.get('token_hash') ?? searchParams.get('token')
   const type = searchParams.get('type')
+  const returnTo = searchParams.get('return_to') // e.g. /match/uuid
 
-  // Build the redirect response upfront so we can set cookies on it
-  const redirectLobby = NextResponse.redirect(`${origin}/lobby`)
+  // Build redirect responses — prefer return_to over /lobby
+  const postAuthUrl = returnTo ? `${origin}${returnTo}` : `${origin}/lobby`
+  const redirectLobby = NextResponse.redirect(postAuthUrl)
   const redirectError = NextResponse.redirect(`${origin}/?error=auth_failed`)
 
   // Create Supabase client that writes session cookies directly onto the response

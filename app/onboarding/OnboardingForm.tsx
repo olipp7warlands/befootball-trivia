@@ -31,6 +31,7 @@ export function OnboardingForm() {
   const email = searchParams.get('email') ?? ''
   const country = searchParams.get('country') ?? 'ES'
   const name = searchParams.get('name') ?? ''
+  const returnTo = searchParams.get('return_to') ?? ''
 
   useEffect(() => {
     router.prefetch('/auth/check-email')
@@ -56,7 +57,7 @@ export function OnboardingForm() {
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback${returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : ''}`,
           data: { username, card_seed: cardSeed, country_code: country, name },
         },
       })
@@ -65,7 +66,9 @@ export function OnboardingForm() {
         setError(isRateLimit ? 'Demasiados intentos. Espera unos minutos o usa otro email.' : otpError.message)
         return
       }
-      router.push(`/auth/check-email?mode=signup&email=${encodeURIComponent(email)}`)
+      const checkParams = new URLSearchParams({ mode: 'signup', email })
+      if (returnTo) checkParams.set('return_to', returnTo)
+      router.push(`/auth/check-email?${checkParams}`)
     } finally {
       setLoading(false)
     }

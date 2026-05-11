@@ -1,11 +1,69 @@
 import { redirect } from 'next/navigation'
 import { getProfile } from '@/app/actions/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { CrystalCard, Avatar, Flag, DivisionPill } from '@/components/ui'
 import { LobbyClient } from './LobbyClient'
 
 export default async function LobbyPage() {
   const profile = await getProfile()
   if (!profile) redirect('/')
+
+  // Fetch active matches
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let activeMatches: any[] = []
+  if (user) {
+    const { data: matches } = await admin
+      .from('matches')
+      .select('id, player_a, player_b, status, current_round, started_at')
+      .or(`player_a.eq.${user.id},player_b.eq.${user.id}`)
+      .in('status', ['a_turn', 'b_turn', 'waiting'])
+      .order('started_at', { ascending: false })
+      .limit(5)
+
+    if (matches?.length) {
+      const opponentIds = matches
+        .map(m => m.player_a === user.id ? m.player_b : m.player_a)
+        .filter(Boolean) as string[]
+
+      const { data: opponents } = opponentIds.length > 0
+        ? await admin.from('profiles').select('id, username, country_code, card_seed, division').in('id', [...new Set(opponentIds)])
+        : { data: [] }
+
+      const oppMap = Object.fromEntries((opponents ?? []).map(p => [p.id, p]))
+
+      const matchIds = matches.map(m => m.id)
+      const { data: rounds } = await admin.from('match_rounds').select('match_id, player, correct_count').in('match_id', matchIds)
+      type RoundRow = { match_id: string; player: string; correct_count: number | null }
+      const byMatch = (rounds ?? []).reduce<Record<string, RoundRow[]>>((acc, r) => {
+        if (!acc[r.match_id]) acc[r.match_id] = []
+        acc[r.match_id].push(r as RoundRow)
+        return acc
+      }, {})
+
+      activeMatches = matches.map(m => {
+        const yourSide = m.player_a === user.id ? 'a' : 'b'
+        const isYourTurn = m.status === (yourSide === 'a' ? 'a_turn' : 'b_turn')
+        const opponentId = yourSide === 'a' ? m.player_b : m.player_a
+        const opp = opponentId ? oppMap[opponentId] ?? null : null
+        const mr = byMatch[m.id] ?? []
+        const yourScore = mr.filter(r => r.player === user.id).reduce((s, r) => s + (r.correct_count ?? 0) * 100, 0)
+        const oppRounds = mr.filter(r => r.player === opponentId)
+        return {
+          id: m.id,
+          opponent: opp ? { username: opp.username, country_code: opp.country_code, card_seed: opp.card_seed, division: opp.division } : null,
+          status: m.status,
+          currentRound: m.current_round,
+          yourScore,
+          opponentScore: oppRounds.length > 0 ? oppRounds.reduce((s, r) => s + (r.correct_count ?? 0) * 100, 0) : null,
+          isYourTurn,
+        }
+      })
+    }
+  }
 
   const accuracy =
     profile.total_questions > 0
@@ -68,7 +126,7 @@ export default async function LobbyPage() {
         ))}
       </div>
 
-      <LobbyClient />
+      <LobbyClient activeMatches={activeMatches} />
     </div>
   )
 }

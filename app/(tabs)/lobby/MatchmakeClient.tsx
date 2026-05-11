@@ -153,7 +153,7 @@ export function MatchmakeClient({ onClose }: Props) {
               </h2>
             </div>
             <p style={{ fontSize: '12px', color: 'rgba(222,216,250,0.7)', lineHeight: 1.5, marginBottom: '20px' }}>
-              Te avisaremos por email cuando alguien acepte.
+              Comparte este link con tu amigo. Cuando lo abra, podrá jugar contigo.
             </p>
             {matchUrl && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(222,216,250,0.1)', borderRadius: '10px', padding: '10px 12px', marginBottom: '16px' }}>
