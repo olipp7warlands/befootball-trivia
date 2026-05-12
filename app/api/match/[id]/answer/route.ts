@@ -88,41 +88,27 @@ export async function POST(
   let matchComplete = false
 
   if (isRoundComplete) {
-    console.log(`[answer] Round complete. user=${user.id} match=${matchId} round=${match.current_round} match.status=${match.status}`)
-
     if (match.status === 'a_turn') {
       // A finished → B's turn
       await admin.from('matches').update({ status: 'b_turn' }).eq('id', matchId)
-      console.log(`[answer] Status updated to b_turn`)
 
-      // If player_b is a bot, play their round immediately (synchronous for demo)
+      // If player_b is a bot, play their round immediately
       const opponentId = match.player_b as string | null
-      console.log(`[answer] opponentId (player_b)=${opponentId}`)
-
       if (opponentId) {
-        const { data: oppProfile, error: oppErr } = await admin
+        const { data: oppProfile } = await admin
           .from('profiles')
-          .select('is_bot, bot_skill')
+          .select('is_bot')
           .eq('id', opponentId)
           .single()
 
-        console.log(`[answer] oppProfile.is_bot=${oppProfile?.is_bot} oppProfile.bot_skill=${oppProfile?.bot_skill} fetchError=${oppErr?.message ?? 'none'}`)
-        console.log(`[answer] Will trigger bot: ${!!oppProfile?.is_bot}`)
-
         if (oppProfile?.is_bot) {
-          console.log(`[answer] Calling botPlayRound: match=${matchId} round=${match.current_round} bot=${opponentId}`)
           try {
             await botPlayRound({ matchId, botUserId: opponentId, roundNum: match.current_round })
-            console.log(`[answer] botPlayRound returned OK`)
-            // Bot may have just finished the match — refresh state to report matchComplete accurately
             const { data: refreshed } = await admin.from('matches').select('status').eq('id', matchId).single()
-            console.log(`[answer] Refreshed match.status=${refreshed?.status}`)
             if (refreshed?.status === 'finished') matchComplete = true
           } catch (botErr: unknown) {
             const e = botErr instanceof Error ? botErr : new Error(String(botErr))
-            console.error(`[answer] botPlayRound FAILED: ${e.message}`)
-            console.error(`[answer] Stack: ${e.stack}`)
-            // Don't rethrow — user's answer is already saved; bot failure shouldn't break the response
+            console.error('[bot] failed', e.message)
           }
         }
       }
