@@ -190,10 +190,7 @@ export default async function MatchResultPage({
           <a href="/lobby" style={{ textDecoration: 'none' }}>
             <PillButton variant="primary" arrow>Volver al lobby</PillButton>
           </a>
-          <RevanchaButton
-            opponentId={opponentId ?? null}
-            opponentUsername={opponentProfile?.username ?? null}
-          />
+          <RevanchaButton previousMatchId={id} />
         </div>
 
         <p style={{ marginTop: '10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.3)' }}>
