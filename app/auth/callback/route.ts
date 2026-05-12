@@ -3,12 +3,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams, origin: rawOrigin } = new URL(request.url)
   const code = searchParams.get('code')
   const token = searchParams.get('token_hash') ?? searchParams.get('token')
   const type = searchParams.get('type')
   // return_to from URL (legacy) OR from user_metadata (set during OTP) — resolved after auth
   const urlReturnTo = searchParams.get('return_to')
+
+  // Railway (and most reverse proxies) forward requests to the app on an internal port
+  // (e.g. localhost:8080). The raw origin from request.url is that internal URL.
+  // Use x-forwarded headers or NEXT_PUBLIC_SITE_URL to reconstruct the real public origin.
+  const fwdProto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim()
+  const fwdHost = request.headers.get('x-forwarded-host')?.split(',')[0].trim()
+  const origin = (fwdProto && fwdHost)
+    ? `${fwdProto}://${fwdHost}`
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? rawOrigin)
 
   // Placeholder redirects — actual destination resolved after auth (using user_metadata.return_to)
   const redirectLobby = NextResponse.redirect(`${origin}/lobby`)
