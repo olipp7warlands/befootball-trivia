@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calcScore } from '@/lib/game/scoring'
 import { calcElo, getDivision } from '@/lib/game/elo'
+import { botPlayRound } from '@/lib/bots/play-round'
 
 export async function POST(
   request: NextRequest,
@@ -90,6 +91,22 @@ export async function POST(
     if (match.status === 'a_turn') {
       // A finished → B's turn
       await admin.from('matches').update({ status: 'b_turn' }).eq('id', matchId)
+
+      // If player_b is a bot, play their round immediately (synchronous for demo)
+      const opponentId = match.player_b as string | null
+      if (opponentId) {
+        const { data: oppProfile } = await admin
+          .from('profiles')
+          .select('is_bot')
+          .eq('id', opponentId)
+          .single()
+        if (oppProfile?.is_bot) {
+          await botPlayRound({ matchId, botUserId: opponentId, roundNum: match.current_round })
+          // Bot may have just finished the match — refresh state to report matchComplete accurately
+          const { data: refreshed } = await admin.from('matches').select('status').eq('id', matchId).single()
+          if (refreshed?.status === 'finished') matchComplete = true
+        }
+      }
     } else {
       // B finished this round
       if (match.current_round >= 3) {

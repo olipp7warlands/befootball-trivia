@@ -1,10 +1,13 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { IconShare2 } from '@tabler/icons-react'
+import { ScreenContainer } from '@/components/layout/ScreenContainer'
+import { Avatar, Flag, CrystalCard, DivisionPill, PillButton } from '@/components/ui'
+import type { Profile, Division } from '@/lib/types'
+import { CATEGORY_LABELS } from '@/lib/types'
 import RevanchaButton from './RevanchaButton'
-import type { Match, MatchRound, Profile } from '@/lib/types'
-import { calcElo } from '@/lib/game/elo'
 
 export default async function MatchResultPage({
   params,
@@ -13,214 +16,190 @@ export default async function MatchResultPage({
 }) {
   const { id } = await params
   const supabase = await createClient()
+  const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  // Fetch match
-  const { data: matchRaw } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const { data: match } = await admin.from('matches').select('*').eq('id', id).single()
+  if (!match || (match.player_a !== user.id && match.player_b !== user.id)) redirect('/lobby')
+  if (match.status !== 'finished') redirect(`/match/${id}`)
 
-  if (
-    !matchRaw ||
-    (matchRaw.player_a !== user.id && matchRaw.player_b !== user.id)
-  ) {
-    redirect('/lobby')
+  const opponentId = match.player_a === user.id ? match.player_b : match.player_a
+
+  // Load profiles
+  const ids = [user.id, ...(opponentId ? [opponentId] : [])]
+  const { data: profilesRaw } = await admin.from('profiles').select('*').in('id', ids)
+  const profileMap = Object.fromEntries((profilesRaw ?? []).map((p: Profile) => [p.id, p]))
+  const myProfile = profileMap[user.id] as Profile | undefined
+  const opponentProfile = opponentId ? (profileMap[opponentId] as Profile | undefined) : undefined
+
+  // Load rounds
+  const { data: rounds } = await admin.from('match_rounds').select('*').eq('match_id', id)
+  const allRounds = rounds ?? []
+
+  const myRounds = allRounds.filter((r: any) => r.player === user.id)
+  const oppRounds = allRounds.filter((r: any) => r.player === opponentId)
+
+  // Aggregate
+  const myCorrect = myRounds.reduce((s: number, r: any) => s + (r.correct_count ?? 0), 0)
+  const oppCorrect = oppRounds.reduce((s: number, r: any) => s + (r.correct_count ?? 0), 0)
+  const myTotalTimeMs = myRounds.reduce((s: number, r: any) => s + (r.time_taken_ms ?? 0), 0)
+  const myTotalPoints = myRounds.flatMap((r: any) => r.answers ?? []).reduce((s: number, a: any) => s + (a.points ?? 0), 0)
+
+  // Best category
+  const catStats: Record<string, { correct: number; total: number }> = {}
+  for (const r of myRounds as any[]) {
+    const cat = r.category as string
+    if (!catStats[cat]) catStats[cat] = { correct: 0, total: 0 }
+    catStats[cat].correct += r.correct_count ?? 0
+    catStats[cat].total += (r.questions ?? []).length
   }
+  const bestCat = Object.entries(catStats).sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total))[0]
 
-  const match = matchRaw as Match
-
-  // Fetch all rounds for this match
-  const { data: roundsRaw } = await supabase
-    .from('match_rounds')
-    .select('*')
-    .eq('match_id', id)
-
-  const rounds = (roundsRaw ?? []) as MatchRound[]
-
-  // Aggregate correct counts per player
-  function aggregatePlayer(playerId: string) {
-    return rounds
-      .filter((r) => r.player === playerId)
-      .reduce((sum, r) => sum + (r.correct_count ?? 0), 0)
-  }
-
-  const myCorrect = aggregatePlayer(user.id)
-  const opponentId =
-    match.player_a === user.id ? match.player_b : match.player_a
-  const opponentCorrect = opponentId ? aggregatePlayer(opponentId) : null
-
-  // Determine outcome
+  // Outcome
   const isWinner = match.winner === user.id
-  const isDraw = match.status === 'finished' && !match.winner
-  const outcome: 'win' | 'loss' | 'draw' =
-    isDraw ? 'draw' : isWinner ? 'win' : 'loss'
+  const isDraw = !match.winner
+  const outcome: 'win' | 'loss' | 'draw' = isDraw ? 'draw' : isWinner ? 'win' : 'loss'
 
-  // Fetch both profiles for ELO display
-  const playerIds = [user.id, ...(opponentId ? [opponentId] : [])]
-  const { data: profilesRaw } = await supabase
-    .from('profiles')
-    .select('*')
-    .in('id', playerIds)
-
-  const profiles = (profilesRaw ?? []) as Profile[]
-  const profileMap = new Map<string, Profile>(profiles.map((p) => [p.id, p]))
-
-  const myProfile = profileMap.get(user.id)
-  const opponentProfile = opponentId ? profileMap.get(opponentId) : null
-
-  // Calculate ELO delta (approximate, server already updated; we show the diff)
+  // ELO delta (approximate using Elo formula with current post-match ELOs)
   let eloDelta = 0
   if (myProfile && opponentProfile) {
-    const newElo = calcElo(
-      myProfile.elo,
-      opponentProfile.elo,
-      outcome === 'win',
-      outcome === 'draw'
-    )
-    eloDelta = newElo - myProfile.elo
+    const K = 32
+    const expected = 1 / (1 + Math.pow(10, (opponentProfile.elo - myProfile.elo) / 400))
+    const result = outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0
+    eloDelta = Math.floor(K * (result - expected))
   }
 
-  // Outcome visuals
-  const outcomeLabel =
-    outcome === 'win' ? 'VICTORIA' : outcome === 'loss' ? 'DERROTA' : 'EMPATE'
-  const outcomeColor =
-    outcome === 'win'
-      ? 'text-[#67D7A8]'
-      : outcome === 'loss'
-      ? 'text-red-400'
-      : 'text-[#9474F6]'
+  const OUTCOME = {
+    win:  { eyebrow: '— VICTORIA', eyebrowColor: '#67D7A8', hero: '¡La liga es tuya!' },
+    loss: { eyebrow: '— DERROTA',  eyebrowColor: 'rgba(222,216,250,0.5)', hero: 'Esta vez no.' },
+    draw: { eyebrow: '— EMPATE',   eyebrowColor: '#9474F6', hero: 'Empate técnico.' },
+  }[outcome]
 
-  const eloDeltaColor =
-    eloDelta > 0
-      ? 'text-[#67D7A8] bg-[#67D7A8]/10 border-[#67D7A8]/30'
-      : eloDelta < 0
-      ? 'text-red-400 bg-red-400/10 border-red-400/30'
-      : 'text-[#9474F6] bg-[#9474F6]/10 border-[#9474F6]/30'
+  const myInitials = (myProfile?.username ?? '??').slice(0, 2).toUpperCase()
+  const oppInitials = (opponentProfile?.username ?? '??').slice(0, 2).toUpperCase()
 
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center bg-[#0a0420] px-4 py-12 page-enter">
-      <div className="w-full max-w-sm flex flex-col items-center gap-8">
+    <ScreenContainer>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', padding: '20px 20px 16px' }}>
 
-        {/* Outcome headline */}
-        <div className="text-center">
-          <h1
-            className={`text-6xl font-black italic leading-none ${outcomeColor}`}
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            {outcomeLabel}
+        {/* ── Header ── */}
+        <div style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: OUTCOME.eyebrowColor, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            {OUTCOME.eyebrow}
+          </p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '36px', lineHeight: 1, letterSpacing: '-0.025em', color: '#F1F1F1', marginBottom: '6px' }}>
+            {OUTCOME.hero}
           </h1>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'rgba(222,216,250,0.7)' }}>
+            {myCorrect} de 9 aciertos
+          </p>
+        </div>
 
-          {/* ELO badge */}
-          {eloDelta !== 0 && (
-            <span
-              className={`inline-block mt-3 text-sm font-bold px-3 py-1 rounded-full border ${eloDeltaColor}`}
-              style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              {eloDelta > 0 ? '+' : ''}
-              {eloDelta} ELO
+        {/* ── Scoreboard ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center', background: 'rgba(148,116,246,0.06)', border: '1px solid rgba(148,116,246,0.18)', borderRadius: '14px', padding: '16px', marginBottom: '14px' }}>
+          {/* Left: me */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '5px' }}>
+            <Avatar cardSeed={myProfile?.card_seed ?? 0} initials={myInitials} size={36} />
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '11px', color: '#F1F1F1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+              {myProfile?.username ?? '??'}
             </span>
-          )}
+            <DivisionPill division={(myProfile?.division ?? 'bronze') as Division} />
+          </div>
+
+          {/* Center: score */}
+          <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '28px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: outcome === 'win' ? '#67D7A8' : '#DED8FA' }}>{myCorrect}</span>
+            <span style={{ color: 'rgba(148,116,246,0.3)', fontSize: '20px' }}>·</span>
+            <span style={{ color: outcome === 'loss' ? '#67D7A8' : 'rgba(222,216,250,0.5)' }}>{oppCorrect}</span>
+          </div>
+
+          {/* Right: opponent */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
+            <Avatar cardSeed={opponentProfile?.card_seed ?? 0} initials={oppInitials} size={36} />
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '11px', color: '#F1F1F1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px', textAlign: 'right' }}>
+              {opponentProfile?.username ?? '...'}
+            </span>
+            <DivisionPill division={(opponentProfile?.division ?? 'bronze') as Division} />
+          </div>
         </div>
 
-        {/* Score display */}
-        <div
-          className="text-5xl font-black tracking-tighter text-[#F1F1F1]"
-          style={{ fontFamily: 'var(--font-mono)' }}
-        >
-          <span className={outcome === 'win' ? 'text-[#67D7A8]' : 'text-[#F1F1F1]'}>
-            {myCorrect}
-          </span>
-          <span className="text-[#9474F6]/40 mx-3">—</span>
-          <span className={outcome === 'loss' ? 'text-red-400' : 'text-[#9474F6]/70'}>
-            {opponentCorrect ?? '?'}
-          </span>
-        </div>
-
-        <div className="text-xs text-[#9474F6]/60 -mt-4">
-          respuestas correctas (de 9)
-        </div>
-
-        {/* Round-by-round breakdown */}
-        {rounds.length > 0 && (
-          <div className="w-full rounded-2xl border border-[#5B2AF3]/40 bg-[#180E33] divide-y divide-[#9474F6]/10">
-            {[1, 2, 3].map((rNum) => {
-              const myRound = rounds.find(
-                (r) => r.round_num === rNum && r.player === user.id
-              )
-              const oppRound = opponentId
-                ? rounds.find(
-                    (r) => r.round_num === rNum && r.player === opponentId
-                  )
-                : null
-
-              return (
-                <div key={rNum} className="flex items-center justify-between px-5 py-3 text-sm">
-                  <span className="text-[#9474F6]/70">Ronda {rNum}</span>
-                  <div
-                    className="flex items-center gap-2"
-                    style={{ fontFamily: 'var(--font-mono)' }}
-                  >
-                    <span className="text-[#67D7A8] font-bold">
-                      {myRound?.correct_count ?? '–'}
-                    </span>
-                    <span className="text-[#9474F6]/40">vs</span>
-                    <span className="text-[#9474F6]/60">
-                      {oppRound?.correct_count ?? '?'}
-                    </span>
+        {/* ── Mini-Pass crystal ── */}
+        {myProfile && (
+          <div style={{ marginBottom: '14px' }}>
+            <CrystalCard seed={myProfile.card_seed} aspectRatio="16/9">
+              <div style={{ padding: '12px 14px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#180E33' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '10px' }}>BEFOOTBALL</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Flag code={myProfile.country_code} size={14} />
                   </div>
                 </div>
-              )
-            })}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div>
+                    <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 900, fontSize: '18px', letterSpacing: '-0.03em', lineHeight: 0.95 }}>{myProfile.username}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', opacity: 0.6, marginTop: '3px' }}>
+                      ELO {myProfile.elo} {eloDelta !== 0 && <span style={{ color: eloDelta > 0 ? '#067A50' : '#8B0000', fontWeight: 700 }}>({eloDelta > 0 ? '+' : ''}{eloDelta})</span>}
+                    </p>
+                  </div>
+                  <DivisionPill division={myProfile.division} />
+                </div>
+              </div>
+            </CrystalCard>
           </div>
         )}
 
-        {/* Crystal card teaser */}
-        <div className="w-full rounded-2xl crystal-card noise-overlay p-px">
-          <div className="rounded-2xl bg-[#180E33]/80 backdrop-blur-sm px-5 py-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold tracking-widest uppercase text-[#9474F6]"
-                style={{ fontFamily: 'var(--font-mono)' }}>
-                Tu tarjeta
-              </p>
-              <p className="text-sm font-semibold text-[#DED8FA] mt-0.5">
-                {myProfile?.username ?? 'Jugador'}
-              </p>
-              <p className="text-xs text-[#9474F6]/60 mt-0.5">
-                {myProfile?.division ?? 'bronze'} · {myProfile?.elo ?? 0} ELO
-              </p>
+        {/* ── Stats grid ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+          {[
+            {
+              label: 'Mejor categoría',
+              value: bestCat ? `${CATEGORY_LABELS[bestCat[0] as keyof typeof CATEGORY_LABELS] ?? bestCat[0]}` : '–',
+              sub: bestCat ? `${bestCat[1].correct}/${bestCat[1].total}` : '',
+            },
+            {
+              label: 'Tiempo total',
+              value: `${(myTotalTimeMs / 1000).toFixed(0)}s`,
+              sub: 'en 9 preguntas',
+            },
+            {
+              label: 'Puntos ganados',
+              value: String(myTotalPoints),
+              sub: 'pts en este match',
+            },
+            {
+              label: 'ELO',
+              value: String(myProfile?.elo ?? '–'),
+              sub: eloDelta !== 0 ? `${eloDelta > 0 ? '+' : ''}${eloDelta} en esta partida` : 'sin cambio',
+              valueColor: eloDelta > 0 ? '#67D7A8' : eloDelta < 0 ? '#dc3545' : '#DED8FA',
+            },
+          ].map((s) => (
+            <div key={s.label} style={{ background: 'rgba(148,116,246,0.05)', border: '1px solid rgba(148,116,246,0.12)', borderRadius: '10px', padding: '10px 12px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>{s.label}</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '16px', color: (s as any).valueColor ?? '#F1F1F1', lineHeight: 1 }}>{s.value}</p>
+              {s.sub && <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'rgba(222,216,250,0.45)', marginTop: '2px' }}>{s.sub}</p>}
             </div>
-            <div
-              className="text-3xl font-black text-[#67D7A8]"
-              style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              {myCorrect}/9
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-col gap-3 w-full">
-          <Link
-            href={`/share/${id}`}
-            className="btn-primary justify-center gap-2"
-          >
-            <IconShare2 size={18} />
-            Compartir
-            <span className="arrow-badge">↗</span>
-          </Link>
+        <div style={{ flex: 1 }} />
 
+        {/* ── CTAs ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <a href="/lobby" style={{ textDecoration: 'none' }}>
+            <PillButton variant="primary" arrow>Volver al lobby</PillButton>
+          </a>
           <RevanchaButton
             opponentId={opponentId ?? null}
             opponentUsername={opponentProfile?.username ?? null}
           />
         </div>
+
+        <p style={{ marginTop: '10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(222,216,250,0.3)' }}>
+          {new Date().toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </p>
       </div>
-    </main>
+    </ScreenContainer>
   )
 }

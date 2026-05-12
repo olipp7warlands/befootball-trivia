@@ -16,13 +16,14 @@ export default async function LobbyPage() {
 
   let activeMatches: any[] = []
   if (user) {
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: matches } = await admin
       .from('matches')
-      .select('id, player_a, player_b, status, current_round, started_at')
+      .select('id, player_a, player_b, status, current_round, started_at, winner, finished_at')
       .or(`player_a.eq.${user.id},player_b.eq.${user.id}`)
-      .in('status', ['a_turn', 'b_turn', 'waiting'])
+      .or(`status.in.(a_turn,b_turn,waiting),and(status.eq.finished,finished_at.gte.${since24h})`)
       .order('started_at', { ascending: false })
-      .limit(5)
+      .limit(8)
 
     if (matches?.length) {
       const opponentIds = matches
@@ -52,6 +53,9 @@ export default async function LobbyPage() {
         const mr = byMatch[m.id] ?? []
         const yourScore = mr.filter(r => r.player === user.id).reduce((s, r) => s + (r.correct_count ?? 0) * 100, 0)
         const oppRounds = mr.filter(r => r.player === opponentId)
+        const isFinished = m.status === 'finished'
+        const didWin = isFinished && (m as any).winner === user.id
+        const isDraw = isFinished && !(m as any).winner
         return {
           id: m.id,
           opponent: opp ? { username: opp.username, country_code: opp.country_code, card_seed: opp.card_seed, division: opp.division } : null,
@@ -60,6 +64,10 @@ export default async function LobbyPage() {
           yourScore,
           opponentScore: oppRounds.length > 0 ? oppRounds.reduce((s, r) => s + (r.correct_count ?? 0) * 100, 0) : null,
           isYourTurn,
+          // finished match fields
+          isFinished,
+          didWin,
+          isDraw,
         }
       })
     }

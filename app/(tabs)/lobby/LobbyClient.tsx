@@ -13,6 +13,9 @@ interface ActiveMatch {
   currentRound: number
   yourScore: number
   opponentScore: number | null
+  isFinished?: boolean
+  didWin?: boolean
+  isDraw?: boolean
   isYourTurn: boolean
 }
 
@@ -57,7 +60,11 @@ export function LobbyClient({ activeMatches }: Props) {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
             {activeMatches.map(m => (
-              <ActiveMatchCard key={m.id} match={m} onClick={() => router.push(`/match/${m.id}`)} />
+              <ActiveMatchCard
+                key={m.id}
+                match={m}
+                onClick={() => router.push(m.isFinished ? `/match/${m.id}/result` : `/match/${m.id}`)}
+              />
             ))}
           </div>
         </div>
@@ -139,14 +146,21 @@ export function LobbyClient({ activeMatches }: Props) {
 function ActiveMatchCard({ match, onClick }: { match: ActiveMatch; onClick: () => void }) {
   const isWaiting = match.status === 'waiting'
   const isYourTurn = match.isYourTurn && !isWaiting
+  const isFinished = !!match.isFinished
 
-  const label = isWaiting
-    ? 'Esperando que abra el link'
-    : isYourTurn
-      ? `Tu turno · Ronda ${match.currentRound}`
-      : `Esperando rival · Ronda ${match.currentRound}`
-
-  const labelColor = isYourTurn ? '#9474F6' : 'rgba(222,216,250,0.5)'
+  let label: string
+  let labelColor: string
+  if (isFinished) {
+    label = match.didWin ? 'Ganaste ✓' : match.isDraw ? 'Empate' : 'Perdiste'
+    labelColor = match.didWin ? '#67D7A8' : match.isDraw ? '#9474F6' : 'rgba(220,53,69,0.9)'
+  } else {
+    label = isWaiting
+      ? 'Esperando que abra el link'
+      : isYourTurn
+        ? `Tu turno · Ronda ${match.currentRound}`
+        : `Esperando rival · Ronda ${match.currentRound}`
+    labelColor = isYourTurn ? '#9474F6' : 'rgba(222,216,250,0.5)'
+  }
   const initials = (match.opponent?.username ?? '??').slice(0, 2).toUpperCase()
 
   return (
@@ -155,11 +169,13 @@ function ActiveMatchCard({ match, onClick }: { match: ActiveMatch; onClick: () =
       style={{
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: '10px 12px', borderRadius: '10px',
-        border: isYourTurn ? '1px solid rgba(91,42,243,0.4)' : '1px solid rgba(222,216,250,0.07)',
-        background: isYourTurn ? 'rgba(91,42,243,0.12)' : 'rgba(255,255,255,0.03)',
-        cursor: 'pointer', width: '100%', opacity: !isYourTurn && !isWaiting ? 0.75 : 1,
+        border: isFinished
+          ? '1px solid rgba(222,216,250,0.07)'
+          : isYourTurn ? '1px solid rgba(91,42,243,0.4)' : '1px solid rgba(222,216,250,0.07)',
+        background: isFinished ? 'rgba(255,255,255,0.02)' : isYourTurn ? 'rgba(91,42,243,0.12)' : 'rgba(255,255,255,0.03)',
+        cursor: 'pointer', width: '100%', opacity: isFinished ? 0.65 : (!isYourTurn && !isWaiting ? 0.75 : 1),
         transition: 'opacity 0.15s ease',
-        animation: isYourTurn ? 'borderPulse 2s ease-in-out infinite' : 'none',
+        animation: (!isFinished && isYourTurn) ? 'borderPulse 2s ease-in-out infinite' : 'none',
       }}
     >
       <style>{`@keyframes borderPulse { 0%,100%{border-color:rgba(91,42,243,0.4)} 50%{border-color:rgba(91,42,243,0.8)} }`}</style>

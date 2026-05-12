@@ -27,6 +27,9 @@ export default async function RoundResultPage({
   const { data: match } = await admin.from('matches').select('*').eq('id', matchId).single()
   if (!match || (match.player_a !== user.id && match.player_b !== user.id)) redirect('/lobby')
 
+  // If match is already finished (bot played last round sync), go straight to result
+  if (match.status === 'finished') redirect(`/match/${matchId}/result`)
+
   const opponentId = match.player_a === user.id ? match.player_b : match.player_a
   const yourSide = match.player_a === user.id ? 'a' : 'b'
 
